@@ -1,0 +1,187 @@
+Parameters:
+
+#VPC
+  VpcID:
+    Description: Escolha o ID da VPC
+    Type: String
+    Default: 10.0.0.0/16
+    AllowedValues:
+      - 10.0.0.0/16
+      - 192.168.0.0/16
+      - 172.168.0.0/16
+
+  EnableDnsHostnames:
+    Description: Habilita DNS para EC2 desta VPC
+    Type: String
+    Default: "true"
+
+  InstanceTenancy:
+    Description: Especifica se o hardware de EC2 dentro da VPC vão ser padrão ou dedicados
+    Type: String
+    Default: default
+
+#####
+
+#Subnets
+
+  Subnet1Cidr:
+    Description: Selecione a rede da sua Subrede
+    Type: String
+    Default: 10.0.1.0/24
+    AllowedValues:
+      - 10.0.1.0/24
+      - 192.168.1.0/24
+      - 172.168.1.0/24
+    ConstraintDescription: A subrede deve condizer com o ID da rede principal
+
+  Subnet1AZ:
+    Description: Selecione a AZ da Subrede
+    Type: String
+    Default: us-east-1a
+    AllowedValues:
+      - us-east-1a
+      - us-east-1b
+
+#####
+
+#Security Group
+
+  SGSubnet1Descricao:
+    Description: Descricao do nosso SG
+    Type: String
+    Default: Permite SSH para a EC2
+  
+  
+  SGIngressRule:
+    Description: Define porta de entrada para o SSH
+    Type: Number
+    MinValue: 22
+    MaxValue: 3389
+
+  SGEgressRule:
+    Description: Regra de saída
+    Type: Number
+    Default: 65535
+
+
+#####
+
+#EC2
+
+  EC2Size:
+    Description: Selecione o tamanho da EC2
+    Type: String
+    Default: t2.nano
+    AllowedValues:
+      - t2.nano
+      - t2.micro
+
+#####
+
+
+Resources:
+  
+  MyVpc:
+# https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-vpc.html  
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcID
+      EnableDnsHostnames: !Ref EnableDnsHostnames
+      InstanceTenancy: !Ref InstanceTenancy
+  
+
+  #Devemos criar um IGW para conseguirmos criar uma VPC
+
+
+  MyInternetGateway:
+# https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-internetgateway.html
+    Type: AWS::EC2::InternetGateway
+    
+
+    #Agora devemos associar o IGW à nossa VPC
+
+
+  MyIgwAssociation:
+# https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-vpc-gateway-attachment.html
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref MyVpc
+      InternetGatewayId: !Ref MyInternetGateway
+
+  MySubnet1:
+# https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-subnet.html
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MyVpc
+      CidrBlock: !Ref Subnet1Cidr
+      AvailabilityZone: !Ref Subnet1AZ
+  
+
+  #Agora uma parte importante!!
+  
+  #Vamos criar dois SG diferentes para evitar conflitos de regras!
+
+
+  MyIngressSG:
+# https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-security-group.html
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+
+    #É importante declararmos a descrição e o nome do nosso SG
+      GroupDescription: !Ref SGSubnet1Descricao
+      GroupName: MyIngressSG
+
+
+      VpcId: !Ref MyVpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: !Ref SGIngressRule
+          ToPort: !Ref SGIngressRule
+          CidrIp: 0.0.0.0/0
+      
+
+  MyEgressSG:
+# https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-security-group.html
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+
+    #É importante declararmos a descrição e o nome do nosso SG
+      GroupDescription: Permite a saida de todo trafego
+      GroupName: MyEgressSG
+
+
+      VpcId: !Ref MyVpc
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: !Ref SGEgressRule
+          ToPort: !Ref SGEgressRule
+          CidrIp: 0.0.0.0/0
+
+
+  #Essa parte necessita de bastante atenção pois são muitos itens para referenciar
+
+  MyInstance:
+# https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-instance.html
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref EC2Size
+      ImageId: ami-0742b4e673072066f
+
+      #Vamos referenciar a nossa EC2 a nossa Subnet criada anteriormente
+      SubnetId: !Ref MySubnet1
+
+      #E agora vamos colocar a nossa EC2 nos dois SG's criados.
+
+      #É importante usar o "!Ref"
+      SecurityGroupIds:
+        - !Ref "MyIngressSG"
+        - !Ref "MyEgressSG"
+      
+      #A nossa key precisa existir na REGIÃO onde estamos criando a nossa EC2
+      KeyName: <nome da sua chave>
+  
+  MyEIP:
+# https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-eip.html
+    Type: AWS::EC2::EIP
+    Properties:
+      InstanceId: !Ref MyInstance
