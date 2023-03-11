@@ -42,6 +42,23 @@ Parameters:
       - us-east-1a
       - us-east-1b
 
+  Subnet2Cidr:
+    Description: Cidr da nossa Subnet 2
+    Type: String
+    Default: 10.0.2.0/24
+    AllowedValues:
+      - 10.0.2.0/24
+      - 192.168.2.0/24
+      - 172.168.2.0/24
+
+  Subnet2AZ:
+    Description: AZ da nossa Subnet 2
+    Type: String
+    Default: us-east-1a
+    AllowedValues:
+      - us-east-1a
+      - us-east-1b
+
 #####
 
 #Security Group
