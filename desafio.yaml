@@ -97,6 +97,17 @@ Parameters:
 
 #####
 
+#Bucket 
+  BucketName:
+    Description: Nome do nosso bucket
+    Type: String
+    Default: joao-s3-cloudformation
+    AllowedValues:
+      - joao-s3-cloudformation
+      - bucket-cloudformation-joao
+
+#####
+
 
 Resources:
   
@@ -210,3 +221,13 @@ Resources:
     Type: AWS::EC2::EIP
     Properties:
       InstanceId: !Ref MyInstance
+
+  MyBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref BucketName
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        RestrictPublicBuckets: true
+        IgnorePublicAcls: true
