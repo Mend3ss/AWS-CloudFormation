@@ -210,3 +210,13 @@ Resources:
     Type: AWS::EC2::EIP
     Properties:
       InstanceId: !Ref MyInstance
+
+  MyBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: 
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        RestrictPublicBuckets: true
+        IgnorePublicAcls: true
