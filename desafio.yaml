@@ -97,6 +97,17 @@ Parameters:
 
 #####
 
+#Bucket 
+  BucketName:
+    Description: Nome do nosso bucket
+    Type: String
+    Default: joao-s3-cloudformation
+    AllowedValues:
+      - joao-s3-cloudformation
+      - bucket-cloudformation-joao
+
+#####
+
 
 Resources:
   
