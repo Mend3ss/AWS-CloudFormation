@@ -118,6 +118,11 @@ Resources:
       CidrBlock: !Ref Subnet1Cidr
       AvailabilityZone: !Ref Subnet1AZ
   
+  MySubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MyVpc
+      
 
   #Agora uma parte importante!!
   
