@@ -139,7 +139,8 @@ Resources:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref MyVpc
-      
+      CidrBlock: !Ref Subnet2Cidr
+      AvailabilityZone: !Ref Subnet2AZ
 
   #Agora uma parte importante!!
   
