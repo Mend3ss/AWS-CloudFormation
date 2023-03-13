@@ -240,7 +240,6 @@ Resources:
     Properties:
       Subnets:
         - !Ref MySubnet1
-        - !Ref MySubnet2
       Type: network
 
   ELBListener:
