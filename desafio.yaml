@@ -248,7 +248,7 @@ Resources:
     Properties:
       LoadBalancerArn: !Ref MyNetworkELB
       Port: 80
-      Protocol: HTTP
+      Protocol: TCP
       DefaultActions:
         - Type: forward
           TargetGroupArn: !Ref TargetGroup
