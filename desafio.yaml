@@ -276,6 +276,8 @@ Resources:
 # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-as-group.html
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
+      VPCZoneIdentifier:
+        - !Ref MySubnet1
       LaunchConfigurationName: !Ref AutoScalingAMIConfig
       MinSize: 1
       MaxSize: 2
