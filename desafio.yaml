@@ -223,6 +223,7 @@ Resources:
       InstanceId: !Ref MyInstance
 
   MyBucket:
+# https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3-bucket.html
     Type: AWS::S3::Bucket
     Properties:
       BucketName: !Ref BucketName
@@ -231,3 +232,54 @@ Resources:
         BlockPublicPolicy: true
         RestrictPublicBuckets: true
         IgnorePublicAcls: true
+
+  
+  MyNetworkELB:
+# https://docs.aws.amazon.com/pt_br/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-loadbalancer.html#aws-resource-elasticloadbalancingv2-loadbalancer--seealso
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Subnets:
+        - !Ref MySubnet1
+        - !Ref MySubnet2
+      Type: Network
+
+  ELBListener:
+# https://docs.aws.amazon.com/pt_br/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-listener.html
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref MyNetworkELB
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+
+  TargetGroup:
+# https://docs.aws.amazon.com/pt_br/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-targetgroup.html
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      VpcId: !Ref MyVpc
+      Protocol: HTTP
+      Port: 80
+      TargetType: instance
+
+  AutoScalingAMIConfig:
+# https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-autoscaling-launchconfiguration.html
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Properties:
+      ImageId: ami-0742b4e673072066f
+      SecurityGroups:
+        - !Ref MyIngressSG
+        - !Ref MyEgressSG
+      InstanceType: t2.nano
+
+  ASG:
+# https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-as-group.html
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+    LaunchConfigurationName: !Ref AutoScalingAMIConfig
+      MinSize: 1
+      MaxSize: 2
+      DesiredCapacity: 1
+      TargetGroupARNs:
+        - !Ref TargetGroup
