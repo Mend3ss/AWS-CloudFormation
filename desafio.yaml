@@ -132,6 +132,9 @@ Resources:
       CidrBlock: !Ref VpcID
       EnableDnsHostnames: !Ref EnableDnsHostnames
       InstanceTenancy: !Ref InstanceTenancy
+      Tags:
+        - Key: !Ref TagName
+          Value: !Ref TagValor
   
 
   #Devemos criar um IGW para conseguirmos criar uma VPC
@@ -159,6 +162,9 @@ Resources:
       VpcId: !Ref MyVpc
       CidrBlock: !Ref Subnet1Cidr
       AvailabilityZone: !Ref Subnet1AZ
+      Tags:
+        - Value: !Ref TagName
+          Key: !Ref TagValor
   
   MySubnet2:
     Type: AWS::EC2::Subnet
@@ -166,6 +172,9 @@ Resources:
       VpcId: !Ref MyVpc
       CidrBlock: !Ref Subnet2Cidr
       AvailabilityZone: !Ref Subnet2AZ
+      Tags:
+        - Key: !Ref TagName
+          Value: !Ref TagValor
 
   #Agora uma parte importante!!
   
@@ -189,6 +198,10 @@ Resources:
           ToPort: !Ref SGIngressRule
           CidrIp: 0.0.0.0/0
       
+      Tags:
+        - Key: !Ref TagName
+          Value: !Ref TagValor
+      
 
   MyEgressSG:
 # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-security-group.html
@@ -206,6 +219,10 @@ Resources:
           FromPort: !Ref SGEgressRule
           ToPort: !Ref SGEgressRule
           CidrIp: 0.0.0.0/0
+
+      Tags:
+        - Key: !Ref TagName
+          Value: !Ref TagValor
 
 
   #Essa parte necessita de bastante atenção pois são muitos itens para referenciar
@@ -229,12 +246,19 @@ Resources:
       
       #A nossa key precisa existir na REGIÃO onde estamos criando a nossa EC2
       KeyName: <nome da sua chave>
+
+      Tags:
+        - Key: !Ref TagName
+          Value: !Ref TagValor
   
   MyEIP:
 # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-eip.html
     Type: AWS::EC2::EIP
     Properties:
       InstanceId: !Ref MyInstance
+      Tags:
+        - Key: !Ref TagName
+          Value: !Ref TagValor
 
   MyBucket:
 # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3-bucket.html
@@ -255,6 +279,9 @@ Resources:
       Subnets:
         - !Ref MySubnet1
       Type: network
+      Tags:
+        - Key: !Ref TagName
+          Value: !Ref TagValor
 
   ELBListener:
 # https://docs.aws.amazon.com/pt_br/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-listener.html
@@ -275,6 +302,9 @@ Resources:
       Protocol: TCP
       Port: 80
       TargetType: instance
+      Tags:
+        - Key: !Ref TagName
+          Value: !Ref TagValor
 
   AutoScalingAMIConfig:
 # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-autoscaling-launchconfiguration.html
@@ -298,3 +328,7 @@ Resources:
       DesiredCapacity: 1
       TargetGroupARNs:
         - !Ref TargetGroup
+      Tags:
+        - Key: !Ref TagName
+          PropagateAtLaunch: true
+          Value: !Ref TagValor
