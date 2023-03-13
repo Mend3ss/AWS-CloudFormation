@@ -241,7 +241,7 @@ Resources:
       Subnets:
         - !Ref MySubnet1
         - !Ref MySubnet2
-      Type: Network
+      Type: network
 
   ELBListener:
 # https://docs.aws.amazon.com/pt_br/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-listener.html
