@@ -108,6 +108,20 @@ Parameters:
 
 #####
 
+#Tags
+
+  TagName:
+    Description: Meu nome
+    Type: String
+    Default: "joao-mendes"
+
+  TagValor:
+    Description: Tag CloudFormation
+    Type: String
+    Default: "CloudFormation-Resource"
+
+#####
+
 
 Resources:
   
