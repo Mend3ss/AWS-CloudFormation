@@ -1,0 +1,115 @@
+#Script para adicionar Nodes ao nosso Cluster
+
+Parameters:
+  
+##Node Instance Parameters
+  NodeInstanceSize:
+    Description: Tamanho das instâncias que vão ser criadas.
+    Type: String
+    Default: t3.medium
+    AllowedValues:
+      - t3.medium
+      - t2.small
+
+  AMIType:
+    Description: AMI que será usada no nosso Node.
+    Type: String
+    Default: AL2_x86_64
+
+  CapacityType:
+    Description: Qual é o tipo da instância? On-Demand ou SPOT
+    Type: String
+    Default: ON_DEMAND
+    AllowedValues:
+      - ON_DEMAND
+      - SPOT
+
+##Cluster parameters
+
+  ClusterName:
+    Description: Qual o nome do cluster onde o nosso Node vai ser criado?
+    Type: String
+  
+  DiskSize:
+    Description: Qual o tamanho do disco do Node?
+    Type: Number
+    Default: 20
+    AllowedValues:
+      - 20
+      - 30
+      - 50
+  
+  ControlPlaneSecurityGroup:
+    Description: Qual grupo de segurança vamos aplicar no Cluster
+    Type: AWS::EC2::SecurityGroup::Id
+
+##Node parameters
+  NodeGroupName:
+    Description: Nome do nosso NodeGroup
+    Type: String
+    Default: Joao-Mendes-Node
+
+  NodeRole:
+    Description: arn da role com as permissões necessárias
+    Type: String
+    Default: "arn:aws:iam::542730152100:role/NODE-ROLE"
+
+##Scaling
+
+  MinSize:
+    Description: Minimo de Nodes rodando
+    Type: Number
+    Default: 1
+    AllowedValues:
+      - 1
+      - 2
+
+  DesiredSize:
+    Description: Qual o numero de Nodes desejavel?
+    Type: Number
+    Default: 1
+    AllowedValues:
+      - 1
+      - 2
+
+  MaxSize:
+    Description: Numero maximo de Nodes
+    Type: Number
+    Default: 3
+
+##Subnets
+  Subnets:
+    Description: Quais subnets serão as subnets que os nossos Nodes ficarão?
+    Type: List<AWS::EC2::Subnet::Id>
+
+
+##Key
+  KeyName:
+    Description: Qual a chave que será utilizada?
+    Type: AWS::EC2::KeyPair::KeyName
+
+Resources:
+  MyEKSNodeGroup:
+# https://docs.aws.amazon.com/pt_br/AWSCloudFormation/latest/UserGuide/aws-resource-eks-nodegroup.html#cfn-eks-nodegroup-instancetypes
+    Type: AWS::EKS::Nodegroup
+    Properties:
+      ClusterName: !Ref ClusterName
+      NodeRole: !Ref NodeRole
+      NodegroupName: !Ref NodeGroupName
+      InstanceTypes:
+        - !Ref NodeInstanceSize
+      AmiType: !Ref AMIType
+      DiskSize: !Ref DiskSize
+      CapacityType: !Ref CapacityType
+      RemoteAccess:
+        Ec2SshKey: !Ref KeyName
+        SourceSecurityGroups:
+          - !Ref ControlPlaneSecurityGroup
+      ScalingConfig:
+        MinSize: !Ref MinSize
+        DesiredSize: !Ref DesiredSize
+        MaxSize: !Ref MaxSize
+      Subnets: !Ref Subnets
+      Tags:
+        Key: Name
+        Value: Joao-Mendes-Node

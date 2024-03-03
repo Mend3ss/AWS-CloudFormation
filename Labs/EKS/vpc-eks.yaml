@@ -1,0 +1,278 @@
+
+Parameters:
+
+#VPC
+
+  VPCCidr:
+    Type: String
+    Default: 10.0.0.0/16
+    AllowedValues:
+      - 10.0.0.0/16
+      - 192.168.0.0/16
+      - 172.16.0.0/16
+
+  EnableDnsSupport:
+    Type: String
+    Default: "true"
+
+  EnableDnsHostnames:
+    Type: String
+    Default: "true"
+
+
+#####
+
+#!O EKS precisa de no minimo 16 IP válidos!#
+
+#Public Subnet
+
+  PublicSubnet1Cidr:
+    Type: String
+    Default: 10.0.1.0/24
+    AllowedValues:
+      - 192.168.1.0/24
+      - 172.16.1.0/24
+      - 10.0.1.0/24
+
+  MapPublicIpOnLaunch:
+    Type: String
+    Default: "true"
+
+  
+  PublicSubnetAZ:
+    Description: Selecione a AZ da Subrede
+    Type: String
+    Default: us-east-1a
+  
+#####
+
+#!O EKS precisa de no minimo 16 IP válidos!#
+
+
+#Private Subnet
+
+  PrivateSubnetCidr:
+    Type: String
+    Default: 10.0.2.0/24
+    AllowedValues:
+      - 10.0.2.0/24
+      - 192.168.2.0/24
+      - 172.16.2.0/24
+
+  PrivateSubnetAZ:
+    Description: Selecione a AZ da Subrede
+    Type: String
+    Default: us-east-1b
+
+#####
+
+#Tags
+
+  TagNome:
+    Type: String
+    Default: "joao-mendes"
+
+  TagValor:
+    Type: String
+    Default: "CloudFormation-Resources"
+
+Metadata:
+# https://docs.aws.amazon.com/pt_br/AWSCloudFormation/latest/UserGuide/metadata-section-structure.html
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      -
+        Label:
+          Default: "Configuração de rede para os Nodes Worker"
+        Parameters:
+          - VPCCidr
+          - PublicSubnet1Cidr
+          - PrivateSubnetCidr
+
+#####
+
+Resources:
+
+#VPC
+  MyVPC:
+# https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-vpc.html
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VPCCidr
+      EnableDnsSupport: !Ref EnableDnsSupport
+      EnableDnsHostnames: !Ref EnableDnsHostnames
+      Tags:
+      - Key: !Ref TagNome
+        Value: !Ref TagValor
+
+  
+#Internet Gateway
+
+  MyInternetGateway:
+# https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-internetgateway.html
+    Type: AWS::EC2::InternetGateway
+  
+  #Anexando o Internet Gateway com a nossa VPC
+
+  MyIGWAttachment:
+# https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-vpc-gateway-attachment.html
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref MyInternetGateway
+      VpcId: !Ref MyVPC
+
+
+#Tabela de rotas
+
+  MyPublicRouteTable:
+# https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-routetable.html
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref MyVPC
+      Tags:
+      - Key: !Ref TagNome
+        Value: !Ref TagValor
+      - Key: Network
+        Value: Public
+
+  MyPrivateRouteTable:
+# https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-routetable.html
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref MyVPC
+      Tags:
+      - Key: !Ref TagNome
+        Value: !Ref TagValor
+      - Key: Network
+        Value: Private
+
+
+#Criando rotas e associando as tabelas
+
+  MyPublicRoute:
+# https://docs.aws.amazon.com/pt_br/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-route.html
+    DependsOn: MyIGWAttachment
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref MyPublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref MyInternetGateway
+
+  MyPrivateRoute:
+# https://docs.aws.amazon.com/pt_br/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-route.html
+    DependsOn:
+      - MyNatGateway
+      - MyIGWAttachment
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref MyPrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref MyNatGateway
+
+
+#NatGateway
+
+  MyNatGateway:
+# https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-natgateway.html
+    DependsOn:
+      - MyPublicSubnet
+      - MyIGWAttachment
+      - MyNatGatewayEIP
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt 'MyNatGatewayEIP.AllocationId'
+      SubnetId: !Ref MyPublicSubnet
+      Tags:
+      - Key: !Ref TagNome
+        Value: !Ref TagValor
+
+
+
+#NatGateway EIP
+
+  MyNatGatewayEIP:
+# https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-eip.html
+    DependsOn:
+    - MyIGWAttachment
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+
+#Subnet Publica
+
+  MyPublicSubnet:
+# https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-subnet.html
+    Type: AWS::EC2::Subnet
+    Metadata:
+      Comment: Subnet 1
+    Properties:
+      # MapPublicIpOnLaunch: !Ref MapPublicIpOnLaunch
+      AvailabilityZone: !Ref PublicSubnetAZ
+      CidrBlock: !Ref PublicSubnet1Cidr
+      VpcId: !Ref MyVPC
+      Tags:
+      - Key: !Ref TagNome
+        Value: !Ref TagValor
+
+
+#Subnet Privada
+
+  MyPrivateSubnet:
+# https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-subnet.html
+    Type: AWS::EC2::Subnet
+    Metadata:
+      Comment: Subnet 2
+    Properties:
+      AvailabilityZone: !Ref PrivateSubnetAZ
+      CidrBlock: !Ref PrivateSubnetCidr
+      VpcId: !Ref MyVPC
+      Tags:
+      - Key: TagNome
+        Value: TagValor
+
+
+#Route Table Association:
+
+  MyPublicSubnetRTBAssociation:
+# https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-subnetroutetableassociation.html
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref MyPublicSubnet
+      RouteTableId: !Ref MyPublicRouteTable
+
+  MyPrivateSubnetRTBAssociation:
+# https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-subnetroutetableassociation.html
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: 
+      SubnetId: !Ref MyPrivateSubnet
+      RouteTableId: !Ref MyPrivateRouteTable
+
+
+# Control Plane
+
+  MyControlPlaneSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Permitindo comunicacao entre o Cluster e os Nodes Workers
+      VpcId: !Ref MyVPC
+
+#EKS
+
+  MyEKS:
+# https://docs.aws.amazon.com/pt_br/AWSCloudFormation/latest/UserGuide/aws-resource-eks-cluster.html
+    Type: AWS::EKS::Cluster
+    DependsOn:
+      - MyVPC
+      - MyPublicSubnet
+      - MyPrivateSubnet
+    Properties:
+      Name: Test
+      Version: "1.24"
+      RoleArn: "arn:aws:iam::ACCOUNT ID:role/ROLE NAME"
+      ResourcesVpcConfig:
+        SubnetIds:
+          - !Ref MyPublicSubnet
+          - !Ref MyPrivateSubnet
+        SecurityGroupIds:
+          - !Ref MyControlPlaneSecurityGroup
+        EndpointPublicAccess: true
+        EndpointPrivateAccess: true

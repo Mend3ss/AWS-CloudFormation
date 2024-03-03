@@ -1,0 +1,334 @@
+Parameters:
+
+#VPC
+  VpcID:
+    Description: Escolha o ID da VPC
+    Type: String
+    Default: 10.0.0.0/16
+    AllowedValues:
+      - 10.0.0.0/16
+      - 192.168.0.0/16
+      - 172.168.0.0/16
+
+  EnableDnsHostnames:
+    Description: Habilita DNS para EC2 desta VPC
+    Type: String
+    Default: "true"
+
+  InstanceTenancy:
+    Description: Especifica se o hardware de EC2 dentro da VPC vão ser padrão ou dedicados
+    Type: String
+    Default: default
+
+#####
+
+#Subnets
+
+  Subnet1Cidr:
+    Description: Selecione a rede da sua Subrede
+    Type: String
+    Default: 10.0.1.0/24
+    AllowedValues:
+      - 10.0.1.0/24
+      - 192.168.1.0/24
+      - 172.168.1.0/24
+    ConstraintDescription: A subrede deve condizer com o ID da rede principal
+
+  Subnet1AZ:
+    Description: Selecione a AZ da Subrede
+    Type: String
+    Default: us-east-1a
+    AllowedValues:
+      - us-east-1a
+      - us-east-1b
+
+  Subnet2Cidr:
+    Description: Cidr da nossa Subnet 2
+    Type: String
+    Default: 10.0.2.0/24
+    AllowedValues:
+      - 10.0.2.0/24
+      - 192.168.2.0/24
+      - 172.168.2.0/24
+
+  Subnet2AZ:
+    Description: AZ da nossa Subnet 2
+    Type: String
+    Default: us-east-1a
+    AllowedValues:
+      - us-east-1a
+      - us-east-1b
+
+#####
+
+#Security Group
+
+  SGSubnet1Descricao:
+    Description: Descricao do nosso SG
+    Type: String
+    Default: Permite SSH para a EC2
+  
+  
+  SGIngressRule:
+    Description: Define porta de entrada para o SSH
+    Type: Number
+    MinValue: 22
+    MaxValue: 3389
+
+  SGEgressRule:
+    Description: Regra de saída
+    Type: Number
+    Default: 65535
+
+
+#####
+
+#EC2
+
+  EC2Size:
+    Description: Selecione o tamanho da EC2
+    Type: String
+    Default: t2.nano
+    AllowedValues:
+      - t2.nano
+      - t2.micro
+      - t2.small
+      - t2.medium
+
+#####
+
+#Bucket 
+  BucketName:
+    Description: Nome do nosso bucket
+    Type: String
+    Default: joao-s3-cloudformation
+    AllowedValues:
+      - joao-s3-cloudformation
+      - bucket-cloudformation-joao
+
+#####
+
+#Tags
+
+  TagName:
+    Description: Meu nome
+    Type: String
+    Default: "joao-mendes"
+
+  TagValor:
+    Description: Tag CloudFormation
+    Type: String
+    Default: "CloudFormation-Resource"
+
+#####
+
+
+Resources:
+  
+  MyVpc:
+# https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-vpc.html  
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcID
+      EnableDnsHostnames: !Ref EnableDnsHostnames
+      InstanceTenancy: !Ref InstanceTenancy
+      Tags:
+        - Key: !Ref TagName
+          Value: !Ref TagValor
+  
+
+  #Devemos criar um IGW para conseguirmos criar uma VPC
+
+
+  MyInternetGateway:
+# https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-internetgateway.html
+    Type: AWS::EC2::InternetGateway
+    
+
+    #Agora devemos associar o IGW à nossa VPC
+
+
+  MyIgwAssociation:
+# https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-vpc-gateway-attachment.html
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref MyVpc
+      InternetGatewayId: !Ref MyInternetGateway
+
+  MySubnet1:
+# https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-subnet.html
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MyVpc
+      CidrBlock: !Ref Subnet1Cidr
+      AvailabilityZone: !Ref Subnet1AZ
+      Tags:
+        - Value: !Ref TagName
+          Key: !Ref TagValor
+  
+  MySubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MyVpc
+      CidrBlock: !Ref Subnet2Cidr
+      AvailabilityZone: !Ref Subnet2AZ
+      Tags:
+        - Key: !Ref TagName
+          Value: !Ref TagValor
+
+  #Agora uma parte importante!!
+  
+  #Vamos criar dois SG diferentes para evitar conflitos de regras!
+
+
+  MyIngressSG:
+# https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-security-group.html
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+
+    #É importante declararmos a descrição e o nome do nosso SG
+      GroupDescription: !Ref SGSubnet1Descricao
+      GroupName: MyIngressSG
+
+
+      VpcId: !Ref MyVpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: !Ref SGIngressRule
+          ToPort: !Ref SGIngressRule
+          CidrIp: 0.0.0.0/0
+      
+      Tags:
+        - Key: !Ref TagName
+          Value: !Ref TagValor
+      
+
+  MyEgressSG:
+# https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-security-group.html
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+
+    #É importante declararmos a descrição e o nome do nosso SG
+      GroupDescription: Permite a saida de todo trafego
+      GroupName: MyEgressSG
+
+
+      VpcId: !Ref MyVpc
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: !Ref SGEgressRule
+          ToPort: !Ref SGEgressRule
+          CidrIp: 0.0.0.0/0
+
+      Tags:
+        - Key: !Ref TagName
+          Value: !Ref TagValor
+
+
+  #Essa parte necessita de bastante atenção pois são muitos itens para referenciar
+
+  MyInstance:
+# https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-instance.html
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref EC2Size
+      ImageId: ami-0742b4e673072066f
+
+      #Vamos referenciar a nossa EC2 a nossa Subnet criada anteriormente
+      SubnetId: !Ref MySubnet1
+
+      #E agora vamos colocar a nossa EC2 nos dois SG's criados.
+
+      #É importante usar o "!Ref"
+      SecurityGroupIds:
+        - !Ref "MyIngressSG"
+        - !Ref "MyEgressSG"
+      
+      #A nossa key precisa existir na REGIÃO onde estamos criando a nossa EC2
+      KeyName: <nome da sua chave>
+
+      Tags:
+        - Key: !Ref TagName
+          Value: !Ref TagValor
+  
+  MyEIP:
+# https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-eip.html
+    Type: AWS::EC2::EIP
+    Properties:
+      InstanceId: !Ref MyInstance
+      Tags:
+        - Key: !Ref TagName
+          Value: !Ref TagValor
+
+  MyBucket:
+# https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3-bucket.html
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref BucketName
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        RestrictPublicBuckets: true
+        IgnorePublicAcls: true
+
+  
+  MyNetworkELB:
+# https://docs.aws.amazon.com/pt_br/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-loadbalancer.html#aws-resource-elasticloadbalancingv2-loadbalancer--seealso
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Subnets:
+        - !Ref MySubnet1
+      Type: network
+      Tags:
+        - Key: !Ref TagName
+          Value: !Ref TagValor
+
+  ELBListener:
+# https://docs.aws.amazon.com/pt_br/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-listener.html
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref MyNetworkELB
+      Port: 80
+      Protocol: TCP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+
+  TargetGroup:
+# https://docs.aws.amazon.com/pt_br/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-targetgroup.html
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      VpcId: !Ref MyVpc
+      Protocol: TCP
+      Port: 80
+      TargetType: instance
+      Tags:
+        - Key: !Ref TagName
+          Value: !Ref TagValor
+
+  AutoScalingAMIConfig:
+# https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-autoscaling-launchconfiguration.html
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Properties:
+      ImageId: ami-0742b4e673072066f
+      SecurityGroups:
+        - !Ref MyIngressSG
+        - !Ref MyEgressSG
+      InstanceType: t2.nano
+
+  ASG:
+# https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-as-group.html
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      VPCZoneIdentifier:
+        - !Ref MySubnet1
+      LaunchConfigurationName: !Ref AutoScalingAMIConfig
+      MinSize: 1
+      MaxSize: 2
+      DesiredCapacity: 1
+      TargetGroupARNs:
+        - !Ref TargetGroup
+      Tags:
+        - Key: !Ref TagName
+          PropagateAtLaunch: true
+          Value: !Ref TagValor
