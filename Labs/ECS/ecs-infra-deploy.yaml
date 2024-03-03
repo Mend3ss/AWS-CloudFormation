@@ -1,0 +1,217 @@
+Parameters:
+
+#VPC
+  VPCCIDR:
+    Description: Escolha o CIDR da VPC
+    Type: String
+    Default: 192.168.0.0/24
+    AllowedValues:
+      - 192.168.0.0/24
+      - 172.16.0.0/24
+      - 10.0.0.0/24
+
+  EnableDnsHostnames:
+    Description: Habilita consultas DNS de hosts na VPC
+    Type: String
+    Default: "true"
+
+  EnableDnsSupport:
+    Description: Habilita consultas DNS na VPC
+    Type: String
+    Default: "true"
+
+  InstanceTenancy:
+    Description: Define se a instancia sera dedicada ou nao
+    Type: String
+    Default: default
+
+####
+
+#Subnets
+
+  PrivateSubnetCIDR:
+    Description: Selecione a rede da Subnet
+    Type: String
+    Default: 192.168.0.0/24
+    AllowedValues:
+      - 10.0.0.0/24
+      - 192.168.0.0/24
+      - 172.16.0.0/24
+    ConstraintDescription: A Subnet deve estar na mesma classe de rede da VPC
+
+  PrivateSubnetAZ:
+    Description: Selecione a AZ da Subrede
+    Type: String
+    Default: us-east-1a
+    AllowedValues:
+      - us-east-1a
+      - us-east-1b
+
+#####
+
+#ECS Cluster Configuration
+
+  ClusterName:
+    Description: Defina um nome para seu Cluster
+    Type: String
+    Default: Cluster-Lab-Luan
+
+  ClusterType:
+    Description: Opções de uso para o ECS
+    Type: String
+    Default: FARGATE
+    AllowedValues:
+      - FARGATE
+      - FARGATE_SPOT
+
+
+#####
+
+#Container Security Group 
+
+  SGPrivateSubnetDescription:
+    Description: Insire uma descricao para o SG
+    Type: String
+    Default: Permite acesso HTTP para os Hosts
+
+  SGIngressPortRule1AllContainers:
+    Description: Define a porta de entrada para o HTTP
+    Type: String
+    Default: "80"
+
+  SGIngressPortRule2AllContainers:
+    Description: Define a porta de entrada para o HTTP
+    Type: String
+    Default: "8080"
+
+  SGEgressPortRuleAllContainers:
+    Description: Regra de saida
+    Type: Number
+    Default: 65535
+
+  SGCidrIPEgressRuleAllContainers:
+    Description: Define para quais IPs os containers podem mandar trafego
+    Type: String
+    Default: 0.0.0.0/0
+
+#####
+
+# # ALB Security Group
+#   SGALBDescription:
+#     Description: Insire uma descricao para o SG
+#     Type: String
+#     Default: Permite acesso HTTP/HTTPS ao ALB
+
+#   SGIngressALB:
+#     Description: Define a porta de entrada para o HTTP
+#     Type: List<String>
+#     Default: 80, 443
+
+  
+  # SGEgressALB:
+  #   Description: Regra de saida
+  #   Type: Integer
+  #   Default: -1
+
+#### Resources
+
+Resources:
+
+  ECSVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VPCCIDR
+      EnableDnsSupport: !Ref EnableDnsSupport
+      EnableDnsHostnames: !Ref EnableDnsHostnames
+      Tags:
+           - Key: Name
+             Value: ECS-VPC
+  
+  ECSVPCIGW:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: ECS-VPC-IGW
+  
+  ECSVPCRTBAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref ECSVPCIGW
+      VpcId: !Ref ECSVPC
+  
+  ECSVPCRTB:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref ECSVPC
+      Tags:
+        - Key: Name
+          Value: ECS-VPC-RTB
+
+  ECSVPCRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref ECSVPCRTB
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref ECSVPCIGW
+
+
+
+  ECSPrivateSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref ECSVPC
+      CidrBlock: !Ref PrivateSubnetCIDR
+      AvailabilityZone: !Ref PrivateSubnetAZ
+      Tags:
+        - Key: Name
+          Value: ECS-Private-Subnet
+
+
+  SGIngressECSPrivateSubnet:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Ref SGPrivateSubnetDescription
+      GroupName: SGIngressECSPrivateSubnet
+      Tags:
+        - Key: Name
+          Value: ECS-SG-Ingress-Private-Subnet
+
+      VpcId: !Ref ECSVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: !Ref SGIngressPortRule1AllContainers
+          ToPort: !Ref SGIngressPortRule1AllContainers
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: !Ref SGIngressPortRule2AllContainers
+          ToPort: !Ref SGIngressPortRule2AllContainers
+          CidrIp: 0.0.0.0/0
+  
+  SGEgressECSPrivateSubnet:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Ref SGPrivateSubnetDescription
+      GroupName: SGEgressECSPrivateSubnet
+      Tags:
+        - Key: Name
+          Value: ECS-SG-Egress-Private-Subnet
+
+      VpcId: !Ref ECSVPC
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: !Ref SGEgressPortRuleAllContainers
+          ToPort: !Ref SGEgressPortRuleAllContainers
+          CidrIp: !Ref SGCidrIPEgressRuleAllContainers
+  
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Ref ClusterName
+      CapacityProviders:
+           - !Ref ClusterType
+      DefaultCapacityProviderStrategy:
+           - CapacityProvider: !Ref ClusterType
+             Weight: 1
+           - CapacityProvider: !Ref ClusterType
+             Weight: 1
